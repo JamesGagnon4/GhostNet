@@ -184,11 +184,11 @@ def renderFinished():
     
     #randomCommand()
     #moveRight()
-    #if api.readCPU(0x0715)==2: #START WITH 3 LIVES, IF WE DIE, RESTART AT BEGINNING STATE.
-        #api.quickLoadState(1)
-      
-        # api.loadState("states/G&G.save")i
-        #WALKED_VAL = 0    #RESET FITNESS TO 0 due to death.
+    if api.readCPU(0x0715)==2: #START WITH 3 LIVES, IF WE DIE, RESTART AT BEGINNING STATE.
+        api.setPaused(true) 
+        api.loadState("states/G&G.save")
+        WALKED_VAL = 0    #RESET FITNESS TO 0 due to death.
+        apiEnabled()
         
        
    
