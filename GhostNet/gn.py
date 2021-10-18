@@ -39,16 +39,6 @@ def apiEnabled():
   global strY1
 
   print("API enabled")
-  sprite = [0 for i in range(SPRITE_SIZE * SPRITE_SIZE)]
-  for y in range(SPRITE_SIZE):
-	Y = y - SPRITE_SIZE / 2 + 0.5
-	for x in range(SPRITE_SIZE):
-		X = x - SPRITE_SIZE / 2 + 0.5
-		sprite[SPRITE_SIZE * y + x] = nintaco.ORANGE if (X * X + Y * Y 
-					<= SPRITE_SIZE * SPRITE_SIZE / 4) else -1
-  api.createSprite(SPRITE_ID, SPRITE_SIZE, SPRITE_SIZE, sprite)
-
-
   strWidth = api.getStringWidth(STRING, False)
   strWidth1 = api.getStringWidth(STRING_1, False)
   strX = (256 - strWidth) / 2 - 50
@@ -56,18 +46,24 @@ def apiEnabled():
   strX1 = (256 - strWidth) / 2 + 50
   strY1 = 10
   
+  
 def apiDisabled():
   print("API disabled")
-  
 def dispose():
   print("API stopped")
   
 def statusChanged(message):
   print("Status message: %s" % message)
 
+BoxRadius = 6
+InputSize = (BoxRadius*2+1)*(BoxRadius*2+1)
 
+Inputs = InputSize+1
+ 
 #MY FUNCTIONS AND VARIABLES START
 #Button Values
+ButtonNames = ["A", "B", "Up", "Down", "Left", "Right"]
+Outputs = len(ButtonNames)
 A = 0
 B = 1
 Select = 2
@@ -106,32 +102,66 @@ def moveRight():
     api.writeGamepad(0, Right, true)
     print("Right pressed")
 
-def getX():
+def getWalked():
     
     x = api.readCPU(0x0064)
     x2 = api.readCPU(0x0065)*255
     return x+x2
+def getX():
+    x = api.readCPU(0x05AF)
+    return x
 
 def getY():
-    y = api.readCPU(0x0200)
-    y2 = api.readCPU(0x0204)
-    return  y2-y
+    y = api.readCPU(0x0599)
+    
+    return  y
 
 def detectEnemy():
+    enemies = {}
+    for slot in range(0,7):
+        enemy = api.readCPU(0x22E)
+        if enemy != 0:
+
+            ex = api.readCPU(515 + slot*4*6)
+            ey = api.readCPU(0x200 + slot*4*6)
+            enemies[len(enemies)] = {"x": ex, "y": ey}
+            #if ex != 255 and  ey != 255 and  abs(ey-getY())<48 and  abs(ex-getX())>16 and (ex <120 or ex >130):
+            
+               # print(abs(ey-getY()))
+             #   api.drawRect(ex,ey-12, 16,32)
+              #  api.drawLine(126, getY(),ex,ey-12)
+
+    return enemies
+
+def getInputs():
+    enemies = detectEnemy()
+    inputs = []
+    for dy in range(-BoxRadius*16, BoxRadius*16 +1, 16):
+        for dx in range(-BoxRadius*16, BoxRadius*16+1, 16):
+            inputs[len(inputs)] = 0
+            
+            for i in range(0, len(enemies)):
+                distx = abs(enemies[i]["x"] - (getX()+dx))
+                disty = abs(enemies[i]["y"] - (getY()+dy))
+
+                if distx <=8 and disty <=8:
+                    inputs[len(inputs)] = -1
+    return inputs
+
     #ZOMBIE DETECTOR
-    if api.readCPU(0x025E)!=0:
+    #if api.readCPU(0x025E)!=0:
         #print("Zombie Detected!")
-        api.drawRect(api.readCPU(0x0203),api.readCPU(0x0220)-12, 16, 32)
+     #   api.drawRect(api.readCPU(0x0203),api.readCPU(0x0220)-12, 16, 32)
     #CROW DETECT
-    if api.readCPU(0x022E)!=0:
-        api.drawRect(api.readCPU(0x006A), api.readCPU(0x0238), 16, 32)
+    #if api.readCPU(0x022E)!=0:
+    #    api.drawRect(api.readCPU(0x006A), api.readCPU(0x0238), 16, 32)
     #SATAN DETECT
-    if api.readCPU(0x022E)!=0:
-        api.drawRect(api.readCPU(0x0233+8), api.readCPU(0x0220),16, 24)
+    #if api.readCPU(0x022E)!=0:
+    #    api.drawRect(api.readCPU(0x0233+8), api.readCPU(0x0220),16, 24)
 
     #FIRST BOSS DETECT
-    if api.readCPU(0x023A)!=0:
-        api.drawRect(api.readCPU(0x020F),api.readCPU(0x03FC),32,40)
+    #if api.readCPU(0x023A)!=0:
+    #    api.drawRect(api.readCPU(0x020F),api.readCPU(0x03FC),32,40)
 
     
 def randomCommand():
@@ -157,13 +187,13 @@ def randomCommand():
 
 def renderFinished():
     global maxFit
-    tempX = getX()
+    tempX = getWalked()
     WALKED_VAL =tempX/3
+    #calcDist()
     detectEnemy()
-
     if WALKED_VAL > maxFit:
         maxFit = WALKED_VAL
-        print("maxFit is ", maxFit)
+       # print("maxFit is ", maxFit)
 
     STRING = WALKED + str(WALKED_VAL)
     api.setColor(nintaco.DARK_BLUE)
@@ -178,6 +208,7 @@ def renderFinished():
     api.drawString(STRING, strX, strY, False)
     api.drawString(STRING_1, strX1, strY1, False)
     currentFrame = api.getFrameCount()
+    #print("CPU is ", api.readOAM(20))
     
     
 #ENTER RANDOM COMMAND FOR TESTING
@@ -185,11 +216,16 @@ def renderFinished():
     #randomCommand()
     #moveRight()
     if api.readCPU(0x0715)==2: #START WITH 3 LIVES, IF WE DIE, RESTART AT BEGINNING STATE.
-        api.setPaused(true) 
-        api.loadState("states/G&G.save")
-        WALKED_VAL = 0    #RESET FITNESS TO 0 due to death.
-        apiEnabled()
+        api.setSpeed(1)
         
+        api.reset()
+    
+        api.loadState("states/G&G.save")
+        #api.quickLoadState(1)
+        #api.setSpeed(100)     
+        WALKED_VAL = 0    #RESET FITNESS TO 0 due to death.
+        #apiEnabled()
+        #launch()
        
    
 if __name__ == "__main__":
